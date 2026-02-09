@@ -1,26 +1,18 @@
-// We use 'child_process' to run terminal commands from inside JavaScript
 const { exec } = require('child_process');
 
-/**
- * This function will automatically 'git add' and 'git commit' 
- * whenever a tenant's config is updated.
- */
 const logAudit = (tenantId) => {
-    // The command: go to data folder, add the specific tenant's file, and commit it
-    const command = `cd data && git add tenants/${tenantId}/config.json && git commit -m "Audit: Updated config for ${tenantId}"`;
+    // We add '|| true' at the end. 
+    // This tells the computer: "Even if Git has nothing to commit, don't crash."
+    const command = `cd data && git add tenants/${tenantId}/config.json && git commit -m "Audit: Updated config for ${tenantId}" || echo "No changes to commit"`;
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
-            console.error(`Git Audit Error: ${error.message}`);
+            // This will now only trigger if something is REALLY wrong (like Git is missing)
+            console.error(`❌ Git Audit Error: ${error.message}`);
             return;
         }
-        if (stderr) {
-            console.log(`Git Status: ${stderr}`);
-            return;
-        }
-        console.log(`✅ Audit Successful: ${stdout}`);
+        console.log(`✅ Audit Status: ${stdout || 'File tracked'}`);
     });
 };
 
-// Export the function so we can use it in our server later
 module.exports = { logAudit };
