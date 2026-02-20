@@ -1,35 +1,45 @@
 const express = require('express');
 const { logAudit } = require('./services/gitService');
-const isolateTenant = require('./middleware/authMiddleware');
+const authMiddleware = require('./middleware/authMiddleware');
+// 1. Import the database connection
+const connectDB = require('./services/dbService');
 
 const app = express();
-const PORT = 3000;
-
-// Middleware to let Express understand JSON data sent in requests
 app.use(express.json());
 
-// 1. A public route (No isolation needed)
-app.get('/', (req, res) => {
-    res.send("SaaS Configuration System is Running! 🚀");
+// 2. Initialize variables for our Database Model
+let TenantConfig;
+
+// 3. Connect to MongoDB BEFORE starting the server
+connectDB().then(model => {
+    TenantConfig = model;
+    console.log("🍃 MongoDB Connected & Indexed");
+}).catch(err => {
+    console.error("Failed to connect to MongoDB:", err);
 });
 
-// 2. A Private/Isolated route (Uses our middleware)
-// Notice how we put 'isolateTenant' here to protect this route
-app.post('/api/config', isolateTenant, (req, res) => {
-    const { tenantId } = req; // Provided by our middleware
-    const updatedConfig = req.body;
-
+app.post('/update-config', authMiddleware, async (req, res) => {
+    const tenantId = req.headers['x-tenant-id'];
     console.log(`Processing update for ${tenantId}...`);
 
-    logAudit(tenantId);
+    try {
+        // 4. Save to MongoDB (The New Layer)
+        await TenantConfig.findOneAndUpdate(
+            { tenantId: tenantId },
+            { settings: req.body, lastUpdated: new Date() },
+            { upsert: true, new: true }
+        );
 
-    res.json({
-        message: `Configuration updated for ${tenantId}`,
-        auditStatus: "Git commit triggered",
-        dataReceived: updatedConfig
-    });
+        // 5. Trigger the Git Audit (The Existing Layer)
+        logAudit(tenantId);
+
+        res.status(200).send({ message: `Config updated and indexed for ${tenantId}` });
+    } catch (error) {
+        res.status(500).send({ error: "Database update failed" });
+    }
 });
 
+const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`✅ Server is live at http://localhost:${PORT}`);
+    console.log(`✅ Server is live at http://localhost:3000`);
 });
