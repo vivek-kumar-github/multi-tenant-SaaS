@@ -1,7 +1,6 @@
 const express = require('express');
 const { logAudit } = require('./services/gitService');
 const authMiddleware = require('./middleware/authMiddleware');
-// 1. Import the database connection
 const connectDB = require('./services/dbService');
 
 const app = express();
