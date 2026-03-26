@@ -1,14 +1,13 @@
 # Multi-tenant SaaS Configuration Engine (College Mini Project)
 
 ## Overview
-This project demonstrates a multi-tenant configuration system with strong isolation, permissions, caching, and audit trails.
+This project demonstrates a multi-tenant configuration system with strong isolation, permissions, and audit trails.
 
 ### Core features implemented
 - JWT-based authentication (tenant + admin)
 - Role-based authorization (`tenant` and `admin`)
 - Per-tenant isolation in middleware and DB queries
 - MongoDB tenant config storage with unique index
-- Redis caching with tenant keying and TTL
 - Git audit logging on every config update
 - Provisioning script with directory creation, permission hardening, and optional DB registration
 - Config file sync to `data/tenants/<tenantId>/config.json`
@@ -18,11 +17,10 @@ This project demonstrates a multi-tenant configuration system with strong isolat
    ```bash
    npm install
    ```
-2. Start MongoDB and Redis locally (or configure `MONGO_URI` and `REDIS_URL`).
+2. Start MongoDB locally (or configure `MONGO_URI`).
 3. Set optional environment vars:
    - `JWT_SECRET` (default: `super-secret-dev-key`)
    - `MONGO_URI` (default: `mongodb://127.0.0.1:27017/saas_db`)
-   - `REDIS_URL` (default: `redis://127.0.0.1:6379`)
    - `PORT` (default: `3000`)
 4. Start server:
    ```bash

@@ -7,7 +7,6 @@ const { logAudit } = require('./services/gitService');
 const { hashPassword, comparePassword, generateToken } = require('./services/authService');
 const authMiddleware = require('./middleware/authMiddleware');
 const { requireRole } = require('./middleware/roleMiddleware');
-const cacheService = require('./services/cacheService');
 
 const app = express();
 app.use(express.json());
@@ -95,16 +94,10 @@ app.get('/tenant/config', authMiddleware, async (req, res) => {
   if (!tenantId) return res.status(400).json({ error: 'Tenant context is required' });
 
   try {
-    let config = await cacheService.getConfig(tenantId);
+    const row = await TenantConfig.findOne({ tenantId });
+    if (!row) return res.status(404).json({ error: 'Tenant config not found' });
 
-    if (!config) {
-      const row = await TenantConfig.findOne({ tenantId });
-      if (!row) return res.status(404).json({ error: 'Tenant config not found' });
-      config = row.settings;
-      await cacheService.setConfig(tenantId, config);
-    }
-
-    res.json({ tenantId, settings: config });
+    res.json({ tenantId, settings: row.settings });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not read tenant config' });
@@ -124,7 +117,6 @@ app.post('/tenant/config', authMiddleware, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    await cacheService.setConfig(tenantId, settings);
     await ensureTenantConfigFile(tenantId, settings);
     logAudit(tenantId, req.user.id, 'tenant-config-update');
 
@@ -150,7 +142,6 @@ app.post('/admin/tenant', authMiddleware, requireRole('admin'), async (req, res)
 
     const created = await TenantConfig.create({ tenantId, settings, lastUpdated: new Date() });
     await ensureTenantConfigFile(tenantId, settings);
-    await cacheService.setConfig(tenantId, settings);
     logAudit(tenantId, req.user.id, 'admin-create-tenant');
 
     res.status(201).json({ message: 'Tenant created', tenant: created });
