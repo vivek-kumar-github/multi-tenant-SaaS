@@ -1,0 +1,6 @@
+{
+  "tenant_id": "apple",
+  "theme_color": "#3b82f6",
+  "api_access": true,
+  "max_users": 10
+}

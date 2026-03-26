@@ -18,6 +18,12 @@ cat <<EOF > ./data/tenants/$TENANT_NAME/config.json
 }
 EOF
 
+chmod -R 700 ./data/tenants/$TENANT_NAME || true
+
+if command -v mongo >/dev/null 2>&1; then
+  mongo --eval "db=connect('localhost:27017/saas_db'); db.tenantconfigs.updateOne({ tenantId: '$TENANT_NAME' }, { $set: { tenantId: '$TENANT_NAME', settings: { theme_color: '#3b82f6', api_access: true, max_users: 10 }, lastUpdated: new Date() } }, { upsert: true })"
+fi
+
 echo "------------------------------------------"
 echo "✅ SUCCESS: Tenant '$TENANT_NAME' is ready!"
 echo "Location: ./data/tenants/$TENANT_NAME/config.json"
