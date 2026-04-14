@@ -1,35 +1,56 @@
 const express = require('express');
-const { logAudit } = require('./services/gitService');
-const isolateTenant = require('./middleware/authMiddleware');
+const fs = require('fs/promises');
+const path = require('path');
+
+const cors = require('cors');
+const connectDB = require('./services/dbService');
+const authMiddleware = require('./middleware/authMiddleware');
+
+// Import route creators
+const createAuthRoutes = require('./routes/authRoutes');
+const createTenantRoutes = require('./routes/tenantRoutes');
+const createAdminRoutes = require('./routes/adminRoutes');
 
 const app = express();
-const PORT = 3000;
-
-// Middleware to let Express understand JSON data sent in requests
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
 app.use(express.json());
 
-// 1. A public route (No isolation needed)
-app.get('/', (req, res) => {
-    res.send("SaaS Configuration System is Running! 🚀");
+const TENANT_DIR = path.resolve(__dirname, '..', 'data', 'tenants');
+
+let TenantConfig;
+let User;
+
+const ensureTenantConfigFile = async (tenantId, config) => {
+  const tenantDir = path.join(TENANT_DIR, tenantId);
+  const filePath = path.join(tenantDir, 'config.json');
+
+  await fs.mkdir(tenantDir, { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify({ tenantId, ...config }, null, 2), 'utf8');
+
+  try {
+    await fs.chmod(tenantDir, 0o700);
+    await fs.chmod(filePath, 0o600);
+  } catch (err) {
+    console.warn('Could not set Unix permissions (platform maybe windows):', err.message);
+  }
+};
+
+connectDB().then(models => {
+  TenantConfig = models.TenantConfig;
+  User = models.User;
+  console.log('MongoDB Connected & Indexed');
+  
+  // Mount routes
+  app.use('/auth', createAuthRoutes(User));
+  app.use('/tenant', createTenantRoutes(TenantConfig, ensureTenantConfigFile));
+  app.use('/admin', createAdminRoutes(TenantConfig, ensureTenantConfigFile));
+}).catch(err => {
+  console.error('Failed to connect to MongoDB:', err);
+  process.exit(1);
 });
 
-// 2. A Private/Isolated route (Uses our middleware)
-// Notice how we put 'isolateTenant' here to protect this route
-app.post('/api/config', isolateTenant, (req, res) => {
-    const { tenantId } = req; // Provided by our middleware
-    const updatedConfig = req.body;
 
-    console.log(`Processing update for ${tenantId}...`);
-
-    logAudit(tenantId);
-
-    res.json({
-        message: `Configuration updated for ${tenantId}`,
-        auditStatus: "Git commit triggered",
-        dataReceived: updatedConfig
-    });
-});
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`✅ Server is live at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
